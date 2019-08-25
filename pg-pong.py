@@ -5,8 +5,8 @@ import gym
 
 # hyperparameters
 H = 200 # number of hidden layer neurons
-batch_size = 10 # every how many episodes to do a param update?
-learning_rate = 1e-4
+batch_size = 10 # every how many episodes to do a param update? (original value: 10)
+learning_rate = 1e-4 # (original value:  1e-4)
 gamma = 0.99 # discount factor for reward
 decay_rate = 0.99 # decay factor for RMSProp leaky sum of grad^2
 resume = False # resume from previous checkpoint?
@@ -29,7 +29,6 @@ def sigmoid(x):
 
 def prepro(I):
   """ prepro 210x160x3 uint8 frame into 6400 (80x80) 1D float vector """
-  """ the observation is an RGB image of the screen, which is an array of shape (210, 160, 3) """
   I = I[35:195] # crop
   I = I[::2,::2,0] # downsample by factor of 2
   I[I == 144] = 0 # erase background (background type 1)
@@ -67,8 +66,8 @@ observation = env.reset()
 prev_x = None # used in computing the difference frame
 xs,hs,dlogps,drs = [],[],[],[]
 running_reward = None
-reward_sum = 0
-episode_number = 0
+reward_sum = 0 # score as the diff. between opponent and agent [-21, 21]
+episode_number = 0 # each of the games played, winner at 21 points
 
 while True:
   if render: env.render()
@@ -79,7 +78,7 @@ while True:
   prev_x = cur_x
 
   # forward the policy network and sample an action from the returned probability
-  aprob, h = policy_forward(x)
+  aprob, h = policy_forward(x) # aprob = probability of playing UP
   action = 2 if np.random.uniform() < aprob else 3 # roll the dice! [2 = UP, 3 = DOWN]
   
   # record various intermediates (needed later for backprop)
@@ -93,6 +92,9 @@ while True:
   reward_sum += reward
 
   drs.append(reward) # record reward (has to be done after we call step() to get reward for previous action)
+
+  if reward != 0: # Pong has either +1 or -1 reward exactly when game ends.
+    print('ep {:d}: game finished, reward: {:f}{:s}'.format(episode_number, reward, '' if reward == -1 else ' !!!!!!!!'))
 
   if done: # an episode finished
     episode_number += 1
@@ -116,6 +118,7 @@ while True:
 
     # perform rmsprop parameter update every batch_size episodes
     if episode_number % batch_size == 0:
+      print('Time to rmsprop!')
       for k,v in model.items():
         g = grad_buffer[k] # gradient
         rmsprop_cache[k] = decay_rate * rmsprop_cache[k] + (1 - decay_rate) * g**2
@@ -123,12 +126,13 @@ while True:
         grad_buffer[k] = np.zeros_like(v) # reset batch gradient buffer
 
     # boring book-keeping
+    if reward_sum > 0: print('The agent WON by {}!!!!!'.format(reward_sum))
     running_reward = reward_sum if running_reward is None else running_reward * 0.99 + reward_sum * 0.01
     print('resetting env. episode reward total was {:f}. running mean: {:f}'.format(reward_sum, running_reward))
-    if episode_number % 100 == 0: pickle.dump(model, open('save.p', 'wb'))
+    if episode_number % 100 == 0:
+      pickle.dump(model, open('save.p', 'wb'))
+      print('saving model as save.p')
     reward_sum = 0
     observation = env.reset() # reset env
     prev_x = None
 
-  if reward != 0: # Pong has either +1 or -1 reward exactly when game ends.
-    print('ep {:d}: game finished, reward: {:f}{:s}'.format(episode_number, reward, '' if reward == -1 else ' !!!!!!!!'))

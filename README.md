@@ -1,6 +1,6 @@
-# RL-pong
+# RL-pong - Tutorial
 
-This is an RL playground to tinker and learn with Karpathy's great tutorial on Policy Gradients.
+This is an RL playground to tinker, and learn with Karpathy's great tutorial on Policy Gradients.
 The original code has been adapted to Python 3.6.
 
 Tutorial:
